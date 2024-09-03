@@ -58,7 +58,7 @@ async def main():
                         serverPlugAmps.set(instant_consumption.current)
                         serverPlugVolts.set(instant_consumption.voltage)
 
-                time.sleep(5)
+                time.sleep(15)
     except Exception as e:
         print("Exception occurred:")
         print(e)
