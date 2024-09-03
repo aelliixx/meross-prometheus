@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 import time
 
 from dotenv import load_dotenv
@@ -8,6 +9,7 @@ from meross_iot.manager import MerossManager
 from prometheus_client import Gauge
 from prometheus_client import start_http_server
 from prometheus_client import disable_created_metrics
+
 disable_created_metrics()
 
 load_dotenv()
@@ -22,6 +24,7 @@ officePlugPower = Gauge('office_plug_power', 'Power used by office plug')
 officePlugAmps = Gauge('office_plug_amps', 'Office plug current')
 officePlugVolts = Gauge('office_plug_volts', 'Office plug voltage')
 
+
 async def main():
     http_api_client = await MerossHttpClient.async_from_user_password(api_base_url='https://iotx-eu.meross.com',
                                                                       email=EMAIL,
@@ -33,34 +36,40 @@ async def main():
 
     await manager.async_device_discovery()
     plugs = manager.find_devices(device_type="mss315")
-    if len(plugs) < 1:
-        print("No MSS315 plugs found...")
-    else:
-        start_http_server(8000)
-        while True:
-            for plug in plugs:
-                dev = plug
+    try:
+        if len(plugs) < 1:
+            print("No MSS315 plugs found...")
+        else:
+            start_http_server(8000)
+            while True:
+                for plug in plugs:
+                    dev = plug
 
-                await dev.async_update()
+                    await dev.async_update()
 
-                instant_consumption = await dev.async_get_instant_metrics()
-                print(f"{dev.name} {instant_consumption}")
-                if dev.name == "Office":
-                    officePlugPower.set(instant_consumption.power)
-                    officePlugAmps.set(instant_consumption.current)
-                    officePlugVolts.set(instant_consumption.voltage)
-                elif dev.name == "Server":
-                    serverPlugPower.set(instant_consumption.power)
-                    serverPlugAmps.set(instant_consumption.current)
-                    serverPlugVolts.set(instant_consumption.voltage)
+                    instant_consumption = await dev.async_get_instant_metrics()
+                    print(f"{dev.name} {instant_consumption}")
+                    if dev.name == "Office":
+                        officePlugPower.set(instant_consumption.power)
+                        officePlugAmps.set(instant_consumption.current)
+                        officePlugVolts.set(instant_consumption.voltage)
+                    elif dev.name == "Server":
+                        serverPlugPower.set(instant_consumption.power)
+                        serverPlugAmps.set(instant_consumption.current)
+                        serverPlugVolts.set(instant_consumption.voltage)
 
-            time.sleep(5)
-
+                time.sleep(5)
+    except Exception as e:
+        print("Exception occurred:")
+        print(e)
     manager.close()
     await http_api_client.async_logout()
 
 
 if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
-    loop.stop()
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(main())
+        loop.stop()
+    except KeyboardInterrupt:
+        print("Interrupted")
